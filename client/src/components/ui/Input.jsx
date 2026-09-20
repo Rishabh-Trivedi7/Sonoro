@@ -32,7 +32,7 @@ export default function Input({
         placeholder={placeholder}
         className={[
           'w-full bg-charcoal border border-border rounded-md',
-          'px-3 py-2.5 text-sm text-cream font-sans',
+          'px-3 py-2.5 text-base sm:text-sm text-cream font-sans',
           'placeholder:text-muted/50',
           'transition-colors duration-150',
           'hover:border-muted/30',

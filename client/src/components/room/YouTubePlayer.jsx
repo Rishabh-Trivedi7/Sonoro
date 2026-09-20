@@ -349,8 +349,17 @@ export default function YouTubePlayer({
     if (!socket) return
 
     const handlePlay = ({ position, timestamp }) => {
-      const drift = timestamp ? (Date.now() - timestamp) / 1000 : 0
+      const now = Date.now()
+      const drift = timestamp ? (now - timestamp) / 1000 : 0
       const targetPos = (position || 0) + drift
+
+      latestPlaybackRef.current = {
+        isPlaying: true,
+        position: targetPos,
+        timestamp: now,
+        receivedAt: now,
+      }
+
       const current = getCurrentTime()
       if (Math.abs(current - targetPos) > 0.5) {
         seekTo(targetPos)
@@ -361,18 +370,37 @@ export default function YouTubePlayer({
     }
 
     const handlePause = ({ position }) => {
+      const now = Date.now()
+      const pos = position ?? 0
+      latestPlaybackRef.current = {
+        isPlaying: false,
+        position: pos,
+        timestamp: now,
+        receivedAt: now,
+      }
+
       pause()
       if (position !== undefined) {
-        seekTo(position)
+        seekTo(pos)
       }
       setIsPlayingLocally(false)
-      dispatch(setPlaybackState({ isPlaying: false, position }))
+      dispatch(setPlaybackState({ isPlaying: false, position: pos }))
     }
 
     const handleSeek = ({ position }) => {
-      seekTo(position)
-      setCurrentTime(position)
-      dispatch(setPlaybackState({ position }))
+      const now = Date.now()
+      const pos = position ?? 0
+      if (latestPlaybackRef.current) {
+        latestPlaybackRef.current = {
+          ...latestPlaybackRef.current,
+          position: pos,
+          timestamp: now,
+          receivedAt: now,
+        }
+      }
+      seekTo(pos)
+      setCurrentTime(pos)
+      dispatch(setPlaybackState({ position: pos }))
     }
 
     const handleTrackChange = ({ track }) => {
@@ -396,19 +424,101 @@ export default function YouTubePlayer({
     }
   }, [isStandalone, getCurrentTime, seekTo, play, pause, loadVideo, dispatch])
 
+  // ── Browser Visibility & Minimization Re-synchronization ───────────────────
+  // When user minimizes or background-tabs the app, the browser/OS may suspend or pause
+  // the YouTube iframe. When returning (visibilitychange -> visible), reconcile
+  // with the room's synchronized state without any hacks. Calculate where the track
+  // should be right now and seek/resume smoothly.
+  useEffect(() => {
+    if (isStandalone) return
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') return
+      if (!isReady || !videoId) return
+
+      const snap = latestPlaybackRef.current
+      if (!snap) return
+
+      const player = playerRef.current
+      if (!player) return
+
+      const calculatedPos = getAuthoritativePosition(snap)
+      const maxDur = totalDuration || currentTrack?.duration || 0
+      const targetPos = maxDur > 0 ? Math.min(calculatedPos, maxDur) : calculatedPos
+      const currentPos = getCurrentTime()
+
+      if (snap.isPlaying) {
+        const drift = Math.abs(currentPos - targetPos)
+        // If drift is noticeable (> 0.75s) or player paused during backgrounding
+        if (drift > 0.75 || !isPlayingLocally) {
+          seekTo(targetPos)
+          setCurrentTime(targetPos)
+          play()
+          setIsPlayingLocally(true)
+          dispatch(setPlaybackState({ isPlaying: true, position: targetPos }))
+        }
+      } else {
+        // Paused state reconciliation
+        pause()
+        setIsPlayingLocally(false)
+        const pausedPos = snap.position || 0
+        if (Math.abs(currentPos - pausedPos) > 0.75) {
+          seekTo(pausedPos)
+          setCurrentTime(pausedPos)
+        }
+        dispatch(setPlaybackState({ isPlaying: false, position: pausedPos }))
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', handleVisibilityChange)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleVisibilityChange)
+    }
+  }, [
+    isStandalone,
+    isReady,
+    videoId,
+    totalDuration,
+    currentTrack?.duration,
+    getAuthoritativePosition,
+    getCurrentTime,
+    seekTo,
+    play,
+    pause,
+    isPlayingLocally,
+    dispatch,
+    playerRef,
+  ])
+
   // Playback controls
   const handlePlayPause = () => {
     if (!isHost) return
     const current = getCurrentTime()
+    const now = Date.now()
     if (isPlayingLocally) {
       pause()
       setIsPlayingLocally(false)
+      latestPlaybackRef.current = {
+        isPlaying: false,
+        position: current,
+        timestamp: now,
+        receivedAt: now,
+      }
       if (!isStandalone) {
         socketService.pause(current)
       }
     } else {
       play()
       setIsPlayingLocally(true)
+      latestPlaybackRef.current = {
+        isPlaying: true,
+        position: current,
+        timestamp: now,
+        receivedAt: now,
+      }
       if (!isStandalone) {
         socketService.play(current)
       }
@@ -418,11 +528,23 @@ export default function YouTubePlayer({
   const handleSeek = (e) => {
     if (!isHost) return
     const rect = e.currentTarget.getBoundingClientRect()
-    const clickX = e.clientX - rect.left
+    // Support both mouse clicks and touch events
+    const clientX = e.clientX ?? e.touches?.[0]?.clientX ?? e.changedTouches?.[0]?.clientX
+    if (clientX == null) return
+    const clickX = clientX - rect.left
     const percentage = Math.max(0, Math.min(1, clickX / rect.width))
     const targetPos = percentage * (totalDuration || currentTrack?.duration || 1)
+    const now = Date.now()
     seekTo(targetPos)
     setCurrentTime(targetPos)
+    if (latestPlaybackRef.current) {
+      latestPlaybackRef.current = {
+        ...latestPlaybackRef.current,
+        position: targetPos,
+        timestamp: now,
+        receivedAt: now,
+      }
+    }
     if (!isStandalone) {
       socketService.seek(targetPos)
     }
@@ -434,40 +556,40 @@ export default function YouTubePlayer({
   return (
     <div className="bg-charcoal border border-border rounded-xl overflow-hidden shadow-2xl relative">
       {/* Top Bar */}
-      <div className="px-5 py-3 border-b border-border/70 flex items-center justify-between text-xs text-muted">
-        <div className="flex items-center gap-2">
-          <span className="flex items-center gap-1.5">
+      <div className="px-4 sm:px-5 py-2.5 sm:py-3 border-b border-border/70 flex items-center justify-between text-xs text-muted gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="flex items-center gap-1.5 shrink-0">
             <span
               className={[
                 'w-2 h-2 rounded-full',
                 isPlayingLocally ? 'bg-green-500 animate-pulse' : 'bg-muted/40',
               ].join(' ')}
             />
-            <span className="font-medium text-cream">
+            <span className="font-medium text-cream text-[11px] sm:text-xs">
               {isPlayingLocally ? 'Now Playing' : 'Paused'}
             </span>
           </span>
-          <span className="text-border">•</span>
-          <span>
+          <span className="text-border hidden sm:inline">•</span>
+          <span className="truncate text-[11px] sm:text-xs">
             {isStandalone
-              ? 'Personal Session (Standalone Listening)'
+              ? 'Personal Session (Standalone)'
               : isHost
-              ? 'You are the Host (Playback Controls Active)'
-              : `Synchronized with Host (${room?.host?.username || 'Host'})`}
+              ? 'You are the Host'
+              : `Sync with ${room?.host?.username || 'Host'}`}
           </span>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <button
             onClick={() => setShowVideo(!showVideo)}
-            className="text-[11px] text-muted hover:text-gold transition-colors flex items-center gap-1"
+            className="text-[11px] text-muted hover:text-gold transition-colors flex items-center gap-1 cursor-pointer py-1 px-1.5 rounded hover:bg-elevated"
           >
-            {showVideo ? 'Hide Video' : 'Show Video Player'}
+            {showVideo ? 'Hide Video' : 'Show Video'}
           </button>
           {isStandalone && onClose && (
             <button
               onClick={onClose}
-              className="text-xs text-muted hover:text-cream px-1.5 py-0.5 rounded hover:bg-elevated transition-colors"
+              className="text-xs text-muted hover:text-cream px-1.5 py-0.5 rounded hover:bg-elevated transition-colors cursor-pointer"
               title="Close player"
             >
               ✕
@@ -477,10 +599,10 @@ export default function YouTubePlayer({
       </div>
 
       {/* Main Player Display */}
-      <div className="p-6">
-        <div className="flex flex-col md:flex-row gap-6 items-center">
+      <div className="p-4 sm:p-6">
+        <div className="flex flex-col md:flex-row gap-5 sm:gap-6 items-center">
           {/* Visual Artwork or Embedded Player */}
-          <div className="relative w-full md:w-64 aspect-video shrink-0 rounded-lg overflow-hidden bg-obsidian border border-border">
+          <div className="relative w-full max-w-sm md:max-w-none md:w-64 aspect-video shrink-0 rounded-lg overflow-hidden bg-obsidian border border-border shadow-md">
             {/* The actual YouTube iframe target element */}
             <div
               id={containerId}
@@ -516,44 +638,48 @@ export default function YouTubePlayer({
 
           {/* Track Details */}
           <div className="flex-1 w-full min-w-0">
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
               <span className="px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider bg-gold/15 text-gold border border-gold/20">
                 {isStandalone ? 'Personal Audio' : 'Lounge Session'}
               </span>
               {!isStandalone && room?.name && (
-                <span className="text-xs text-muted truncate">
-                  Room: {room.name} {room.rid && `(${room.rid})`}
+                <span className="text-xs text-muted truncate max-w-[200px] sm:max-w-xs">
+                  {room.name} {room.rid && `(${room.rid})`}
                 </span>
               )}
             </div>
 
-            <h2 className="font-display text-2xl text-cream font-semibold truncate">
+            <h2 className="font-display text-xl sm:text-2xl text-cream font-semibold truncate" title={currentTrack?.title}>
               {currentTrack?.title || 'Waiting for Track...'}
             </h2>
-            <p className="text-muted text-sm mt-0.5 truncate">
+            <p className="text-muted text-xs sm:text-sm mt-0.5 truncate" title={currentTrack?.artist}>
               {currentTrack?.artist || 'Select a track to start listening'}
             </p>
 
-            {/* Audio Progress Bar */}
-            <div className="mt-5 space-y-1.5">
+            {/* Audio Progress Bar with comfortable tap hit area */}
+            <div className="mt-4 sm:mt-5 space-y-1">
               <div
                 onClick={isHost ? handleSeek : undefined}
+                onTouchEnd={isHost ? handleSeek : undefined}
                 className={[
-                  'relative w-full h-2 bg-obsidian rounded-full overflow-hidden border border-border/80 group',
-                  isHost ? 'cursor-pointer' : 'cursor-default',
+                  'py-2 group select-none relative',
+                  isHost ? 'cursor-pointer touch-none' : 'cursor-default',
                 ].join(' ')}
+                title={isHost ? 'Seek playback' : undefined}
               >
-                <div
-                  className="h-full bg-gold transition-all duration-150 relative"
-                  style={{ width: `${progressPercent}%` }}
-                >
-                  {isHost && (
-                    <span className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-cream rounded-full shadow opacity-0 group-hover:opacity-100 transition-opacity" />
-                  )}
+                <div className="relative w-full h-2 bg-obsidian rounded-full overflow-hidden border border-border/80">
+                  <div
+                    className="h-full bg-gold transition-all duration-150 relative rounded-full"
+                    style={{ width: `${progressPercent}%` }}
+                  >
+                    {isHost && (
+                      <span className="absolute right-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-cream rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity" />
+                    )}
+                  </div>
                 </div>
               </div>
 
-              <div className="flex justify-between text-xs text-muted font-mono">
+              <div className="flex justify-between text-xs text-muted font-mono px-0.5">
                 <span>{formatDuration(currentTime)}</span>
                 <span>{formatDuration(totalDuration || currentTrack?.duration)}</span>
               </div>
@@ -561,10 +687,10 @@ export default function YouTubePlayer({
 
             {/* Playback Controls */}
             {isHost ? (
-              <div className="mt-4 flex items-center gap-4">
+              <div className="mt-3 sm:mt-4 flex items-center gap-3 sm:gap-4">
                 <button
                   onClick={handlePlayPause}
-                  className="h-11 px-6 rounded-md bg-gold text-obsidian font-medium flex items-center gap-2 hover:bg-gold/90 active:scale-98 transition-all shadow-md"
+                  className="h-12 px-6 sm:px-7 rounded-lg bg-gold text-obsidian font-medium flex items-center justify-center gap-2 hover:bg-gold/90 active:scale-95 transition-all shadow-md cursor-pointer text-sm sm:text-base min-w-[130px]"
                   aria-label={isPlayingLocally ? 'Pause' : 'Play'}
                 >
                   {isPlayingLocally ? (
@@ -587,7 +713,7 @@ export default function YouTubePlayer({
                 {!isStandalone && onNextTrack && (
                   <button
                     onClick={onNextTrack}
-                    className="h-11 px-4 rounded-md border border-border text-cream hover:border-gold/50 hover:text-gold flex items-center gap-1.5 text-sm transition-colors"
+                    className="h-12 px-4 rounded-lg border border-border text-cream hover:border-gold/50 hover:text-gold flex items-center justify-center gap-1.5 text-xs sm:text-sm transition-colors active:scale-95 cursor-pointer"
                   >
                     <span>Next Track</span>
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
@@ -597,7 +723,7 @@ export default function YouTubePlayer({
                 )}
               </div>
             ) : (
-              <div className="mt-4 flex items-center gap-2 text-xs text-muted bg-elevated/50 p-2.5 rounded-md border border-border/50">
+              <div className="mt-4 flex items-center gap-2.5 text-xs text-muted bg-elevated/60 p-3 rounded-lg border border-border/50">
                 <svg className="w-4 h-4 text-gold shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>

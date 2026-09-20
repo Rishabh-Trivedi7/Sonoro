@@ -96,3 +96,35 @@
   to   { width: 0%; }
 }
 
+/* ─────────────────────────────────────────────────────────────
+   MOBILE & TOUCH IMPROVEMENTS
+───────────────────────────────────────────────────────────── */
+
+/* Faster tap response on all tappable elements — eliminates the
+   300ms click-delay on iOS Safari and Android Chrome.           */
+html {
+  touch-action: manipulation;
+}
+
+/* Prevent bounce/overscroll on the page body (stops accidental
+   pull-to-refresh and horizontal rubber-band on mobile).        */
+body {
+  overscroll-behavior: none;
+}
+
+/* Horizontally scrollable containers (genre pills, etc.) should
+   not show a scrollbar on touch devices.                        */
+.overflow-x-auto::-webkit-scrollbar,
+.overflow-x-scroll::-webkit-scrollbar {
+  display: none;
+}
+.overflow-x-auto,
+.overflow-x-scroll {
+  -ms-overflow-style: none;  /* IE / Edge */
+  scrollbar-width: none;     /* Firefox  */
+}
+
+/* Ensure no horizontal page overflow on narrow phones.         */
+#root {
+  overflow-x: hidden;
+}

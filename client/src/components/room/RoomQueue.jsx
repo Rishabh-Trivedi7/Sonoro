@@ -179,9 +179,9 @@ export default function RoomQueue({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 autoFocus
-                className="flex-1 bg-obsidian border border-border rounded-md px-3 py-2 text-xs text-cream focus:outline-none focus:border-gold/70"
+                className="flex-1 bg-obsidian border border-border rounded-lg px-3 py-2 text-sm sm:text-xs text-cream focus:outline-none focus:border-gold/70 min-h-[40px]"
               />
-              <Button type="submit" variant="primary" size="sm" disabled={searching}>
+              <Button type="submit" variant="primary" size="sm" disabled={searching} className="shrink-0 min-h-[40px] px-3.5">
                 {searching ? '...' : 'Search'}
               </Button>
             </form>
@@ -192,7 +192,7 @@ export default function RoomQueue({
                 searchResults.map((track) => (
                   <div
                     key={track._id || track.providerId}
-                    className="flex items-center justify-between p-2 rounded bg-obsidian border border-border/60 hover:border-gold/50 transition-colors"
+                    className="flex items-center justify-between p-2 rounded-lg bg-obsidian border border-border/60 hover:border-gold/50 transition-colors gap-2"
                   >
                     <div className="flex items-center gap-2 min-w-0 flex-1">
                       <img
@@ -213,7 +213,7 @@ export default function RoomQueue({
                       variant="primary"
                       size="sm"
                       onClick={() => handleAddTrack(track)}
-                      className="text-xs shrink-0 ml-2"
+                      className="text-xs shrink-0 ml-2 min-h-[36px]"
                     >
                       Add
                     </Button>

@@ -87,12 +87,12 @@ export default function RoomChat({
           value={text}
           onChange={(e) => setText(e.target.value)}
           maxLength={300}
-          className="flex-1 bg-obsidian border border-border rounded-md px-3 py-2 text-xs text-cream focus:outline-none focus:border-gold/70"
+          className="flex-1 bg-obsidian border border-border rounded-lg px-3.5 py-2.5 text-base sm:text-xs text-cream focus:outline-none focus:border-gold/70 min-h-[44px]"
         />
         <button
           type="submit"
           disabled={!text.trim()}
-          className="px-3.5 py-2 bg-gold text-obsidian rounded-md text-xs font-medium hover:bg-gold/85 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="px-4 py-2.5 bg-gold text-obsidian rounded-lg text-xs font-semibold hover:bg-gold/85 disabled:opacity-40 disabled:cursor-not-allowed transition-colors min-h-[42px] cursor-pointer"
         >
           Send
         </button>

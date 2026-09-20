@@ -178,7 +178,7 @@ export default function RoomsPage() {
                   setSearchQuery(e.target.value)
                   if (!e.target.value.trim()) setSearchResults(null)
                 }}
-                className="w-full bg-obsidian border border-border rounded-md pl-10 pr-10 py-2.5 text-sm text-cream placeholder:text-muted/60 focus:outline-none focus:border-gold/70"
+                className="w-full bg-obsidian border border-border rounded-md pl-10 pr-10 py-2.5 text-base sm:text-sm text-cream placeholder:text-muted/60 focus:outline-none focus:border-gold/70 min-h-[44px]"
               />
               <svg
                 className="absolute left-3.5 top-3 w-4 h-4 text-muted/70"
@@ -477,7 +477,7 @@ export default function RoomsPage() {
         {/* Create Room Modal */}
         {isCreateOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-obsidian/85 backdrop-blur-sm">
-            <div className="bg-charcoal border border-border rounded-xl max-w-md w-full p-6 shadow-2xl">
+            <div className="bg-charcoal border border-border rounded-xl max-w-md w-full p-6 shadow-2xl max-h-[90dvh] overflow-y-auto">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-display text-lg text-cream font-semibold">
                   Create a Listening Lounge
@@ -558,7 +558,7 @@ export default function RoomsPage() {
                         }
                       }}
                       placeholder="Search any song, artist..."
-                      className="flex-1 bg-obsidian/80 border border-border rounded-lg px-3 py-1.5 text-xs text-cream placeholder:text-muted/60 focus:outline-none focus:border-gold/60"
+                      className="flex-1 bg-obsidian/80 border border-border rounded-lg px-3 py-1.5 text-base sm:text-xs text-cream placeholder:text-muted/60 focus:outline-none focus:border-gold/60 min-h-[40px]"
                     />
                     <button
                       type="button"

@@ -204,10 +204,10 @@ export default function ProfilePage() {
     <PageContainer>
       <div className="pt-6 pb-16 space-y-10">
         {/* Profile Card Hero */}
-        <div className="bg-charcoal border border-border rounded-xl p-6 md:p-8 shadow-xl relative overflow-hidden">
+        <div className="bg-charcoal border border-border rounded-xl p-4 sm:p-6 md:p-8 shadow-xl relative overflow-hidden">
           <div className="absolute top-0 right-0 w-80 h-80 bg-gold/5 rounded-full blur-3xl pointer-events-none" />
 
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-5 sm:gap-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
               {/* Avatar with optional file picker */}
               <div className="relative group shrink-0">
@@ -294,11 +294,12 @@ export default function ProfilePage() {
 
             {/* Profile Action Buttons */}
             {isOwnProfile && (
-              <div className="flex flex-wrap items-center gap-2.5 self-end sm:self-auto">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 w-full sm:w-auto mt-2 sm:mt-0">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setIsEditing(!isEditing)}
+                  className="min-h-[36px]"
                 >
                   {isEditing ? 'Close Edit' : 'Edit Profile'}
                 </Button>
@@ -306,6 +307,7 @@ export default function ProfilePage() {
                   variant="outline"
                   size="sm"
                   onClick={() => navigate(ROUTES.SETTINGS)}
+                  className="min-h-[36px]"
                 >
                   Settings
                 </Button>
@@ -313,7 +315,7 @@ export default function ProfilePage() {
                   variant="ghost"
                   size="sm"
                   onClick={logout}
-                  className="text-red-400 hover:text-red-300"
+                  className="text-red-400 hover:text-red-300 min-h-[36px] cursor-pointer"
                 >
                   Sign Out
                 </Button>
@@ -403,9 +405,9 @@ export default function ProfilePage() {
               </div>
             )}
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3.5">
               {/* 1. Songs Listened */}
-              <div className="bg-charcoal border border-border rounded-xl p-5 shadow-md flex flex-col justify-between hover:border-gold/30 transition-colors">
+              <div className="bg-charcoal border border-border rounded-xl p-3.5 sm:p-5 shadow-md flex flex-col justify-between hover:border-gold/30 transition-colors">
                 <span className="text-[11px] font-medium text-muted uppercase tracking-wider">
                   Songs Listened
                 </span>

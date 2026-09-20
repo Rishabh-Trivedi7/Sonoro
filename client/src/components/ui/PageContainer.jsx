@@ -9,7 +9,7 @@ export default function PageContainer({ children, className = '' }) {
     <div
       className={[
         'max-w-5xl mx-auto',
-        'px-5 py-10 sm:px-8 sm:py-14',
+        'px-3.5 py-6 sm:px-8 sm:py-14',
         className,
       ].join(' ')}
     >

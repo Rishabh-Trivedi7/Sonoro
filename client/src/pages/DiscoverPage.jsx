@@ -102,7 +102,7 @@ export default function DiscoverPage() {
                 placeholder="Search by song title, artist, or vibe..."
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                className="w-full bg-charcoal border border-border rounded-lg pl-10 pr-10 py-3 text-sm text-cream placeholder:text-muted/60 focus:outline-none focus:border-gold/70 transition-colors shadow-inner"
+                className="w-full bg-charcoal border border-border rounded-lg pl-10 pr-10 py-3 text-base sm:text-sm text-cream placeholder:text-muted/60 focus:outline-none focus:border-gold/70 transition-colors shadow-inner min-h-[44px]"
               />
               <svg
                 className="absolute left-3.5 top-3.5 w-4 h-4 text-muted/70"
@@ -124,7 +124,7 @@ export default function DiscoverPage() {
                     setQuery('')
                     setSearchParams({})
                   }}
-                  className="absolute right-3.5 top-3.5 text-muted hover:text-cream text-xs"
+                  className="absolute right-3.5 top-3.5 text-muted hover:text-cream text-xs p-1"
                 >
                   ✕
                 </button>
@@ -135,7 +135,7 @@ export default function DiscoverPage() {
               variant="primary"
               size="lg"
               disabled={loading}
-              className="shrink-0"
+              className="shrink-0 min-h-[44px]"
             >
               {loading ? 'Searching...' : 'Search'}
             </Button>
@@ -145,21 +145,21 @@ export default function DiscoverPage() {
             variant="outline"
             size="lg"
             onClick={() => setIsAddModalOpen(true)}
-            className="shrink-0"
+            className="shrink-0 min-h-[44px]"
             title="Manual YouTube URL fallback"
           >
             <span className="text-gold font-bold">+</span> Add by URL
           </Button>
         </div>
 
-        {/* Genre / Filter pills */}
-        <div className="flex flex-wrap gap-2 mt-4">
+        {/* Genre / Filter pills (Horizontally scrollable on mobile) */}
+        <div className="flex items-center gap-2 mt-4 overflow-x-auto pb-1 sm:flex-wrap">
           {GENRE_TAGS.map((tag) => (
             <button
               key={tag}
               onClick={() => handleTagClick(tag)}
               className={[
-                'px-3 py-1 text-xs rounded-full border transition-all duration-150',
+                'px-3.5 py-1.5 text-xs rounded-full border transition-all duration-150 shrink-0 cursor-pointer min-h-[32px]',
                 selectedTag === tag
                   ? 'bg-gold/15 border-gold/60 text-gold font-medium'
                   : 'bg-charcoal/50 border-border/80 text-muted hover:text-cream hover:border-muted/50',

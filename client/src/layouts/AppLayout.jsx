@@ -4,7 +4,7 @@ import { ROUTES, getRoomRoute } from '../constants/routes'
 import { useAuth } from '../hooks/useAuth'
 import socketService from '../services/socketService'
 
-const NAV_ITEMS = [
+const DESKTOP_NAV_ITEMS = [
   {
     name: 'Home',
     path: ROUTES.HOME,
@@ -47,6 +47,19 @@ const NAV_ITEMS = [
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.75">
         <path strokeLinecap="round" strokeLinejoin="round" d="m9 9 10.5-3m0 6.553v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 1 1-.99-3.467l2.31-.66a.75.75 0 0 0 .552-.72v-1.89m-9 0v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 1 1-.99-3.467l2.31-.66A.75.75 0 0 0 9 14.803V9.75" />
+      </svg>
+    ),
+  },
+]
+
+const MOBILE_NAV_ITEMS = [
+  ...DESKTOP_NAV_ITEMS,
+  {
+    name: 'Profile',
+    path: ROUTES.PROFILE,
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.75">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
       </svg>
     ),
   },
@@ -122,7 +135,7 @@ export default function AppLayout() {
 
           {/* Desktop Navigation Links */}
           <nav className="hidden md:flex items-center gap-8" aria-label="Main Navigation">
-            {NAV_ITEMS.map((item) => (
+            {DESKTOP_NAV_ITEMS.map((item) => (
               <NavLink
                 key={item.name}
                 to={item.path}
@@ -178,7 +191,7 @@ export default function AppLayout() {
                 <button
                   type="button"
                   onClick={logout}
-                  className="text-xs font-medium text-muted hover:text-red-400 px-2 sm:px-2.5 py-1.5 rounded transition-colors flex items-center gap-1 focus-visible:ring-1 focus-visible:ring-red-400"
+                  className="text-xs font-medium text-muted hover:text-red-400 px-2 sm:px-2.5 py-1.5 rounded transition-colors flex items-center gap-1 focus-visible:ring-1 focus-visible:ring-red-400 cursor-pointer"
                   title="Log out"
                   aria-label="Log out"
                 >
@@ -209,24 +222,24 @@ export default function AppLayout() {
       </header>
 
       {/* ── Page Content ─────────────────────────────────────────── */}
-      <main className="flex-1 pb-24 md:pb-12">
+      <main className="flex-1 pb-28 md:pb-12">
         <Outlet />
       </main>
 
       {/* ── Mobile Bottom Navigation Bar ──────────────────────────── */}
       <nav
-        className="fixed bottom-0 inset-x-0 z-40 bg-obsidian/95 backdrop-blur-lg border-t border-border md:hidden transition-colors duration-200"
+        className="fixed bottom-0 inset-x-0 z-40 bg-obsidian/95 backdrop-blur-lg border-t border-border md:hidden transition-colors duration-200 pb-[env(safe-area-inset-bottom,0px)]"
         aria-label="Mobile Navigation"
       >
-        <div className="flex items-center justify-around h-16 px-2 max-w-md mx-auto">
-          {NAV_ITEMS.map((item) => (
+        <div className="flex items-center justify-around h-16 px-1 max-w-md mx-auto">
+          {MOBILE_NAV_ITEMS.map((item) => (
             <NavLink
               key={item.name}
               to={item.path}
               className={({ isActive }) =>
                 [
-                  'relative flex flex-col items-center justify-center flex-1 py-1 gap-1 text-[11px] font-medium tracking-tight transition-colors duration-200',
-                  isActive ? 'text-cream' : 'text-muted hover:text-cream',
+                  'relative flex flex-col items-center justify-center flex-1 py-1.5 px-0.5 gap-0.5 text-[10px] sm:text-[11px] font-medium tracking-tight transition-colors duration-200 min-h-[48px] min-w-0',
+                  isActive ? 'text-cream font-semibold' : 'text-muted hover:text-cream',
                 ].join(' ')
               }
             >
@@ -235,10 +248,10 @@ export default function AppLayout() {
                   <div className={isActive ? 'text-gold' : 'text-muted'}>
                     {item.icon}
                   </div>
-                  <span>{item.name}</span>
+                  <span className="truncate max-w-full leading-none">{item.name}</span>
                   {isActive && (
                     <span
-                      className="absolute top-1 right-1/2 translate-x-3 w-1 h-1 rounded-full bg-gold"
+                      className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-gold"
                       aria-hidden="true"
                     />
                   )}

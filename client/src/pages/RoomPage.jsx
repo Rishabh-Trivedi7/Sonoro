@@ -40,6 +40,7 @@ export default function RoomPage() {
   // Host Join Requests state
   const [joinRequests, setJoinRequests] = useState([])
   const [isRequestsModalOpen, setIsRequestsModalOpen] = useState(false)
+  const [activeMobileTab, setActiveMobileTab] = useState('chat') // 'chat' | 'queue' | 'listeners'
 
   const isHost = Boolean(
     user && currentRoom && (
@@ -413,13 +414,13 @@ export default function RoomPage() {
 
   return (
     <PageContainer>
-      <div className="pt-4 pb-12 space-y-6">
+      <div className="pt-3 sm:pt-4 pb-12 space-y-5 sm:space-y-6">
         {/* Room Header Banner */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border/70">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="w-2 h-2 rounded-full bg-green-500 animate-ping" />
-              <span className="text-xs uppercase tracking-wider text-gold font-semibold">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 pb-3 sm:pb-4 border-b border-border/70">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <span className="w-2 h-2 rounded-full bg-green-500 animate-ping shrink-0" />
+              <span className="text-[11px] uppercase tracking-wider text-gold font-semibold">
                 Live Communal Audio
               </span>
               <span
@@ -434,19 +435,19 @@ export default function RoomPage() {
               </span>
             </div>
 
-            <div className="flex items-center gap-3">
-              <h1 className="font-display text-2xl sm:text-3xl text-cream font-semibold">
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+              <h1 className="font-display text-xl sm:text-2xl md:text-3xl text-cream font-semibold truncate max-w-full">
                 {currentRoom.name}
               </h1>
               {currentRoom.rid && (
                 <button
                   type="button"
                   onClick={handleCopyRid}
-                  className="font-mono text-xs text-gold/90 px-2 py-0.5 rounded bg-elevated border border-border/80 hover:border-gold/50 transition-colors flex items-center gap-1 cursor-pointer"
+                  className="font-mono text-[11px] text-gold/90 px-2 py-0.5 rounded bg-elevated border border-border/80 hover:border-gold/50 transition-colors flex items-center gap-1 cursor-pointer shrink-0"
                   title="Click to copy Room RID"
                 >
                   <span>RID: {currentRoom.rid}</span>
-                  <span className="text-[10px] text-muted">{copiedRid ? 'Copied!' : 'Copy'}</span>
+                  <span className="text-[9px] text-muted">{copiedRid ? 'Copied!' : 'Copy'}</span>
                 </button>
               )}
             </div>
@@ -460,7 +461,7 @@ export default function RoomPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto flex-wrap">
             {/* Host Join Requests button (Private Rooms) */}
             {isHost && currentRoom.roomType === 'private' && (
               <Button
@@ -507,8 +508,85 @@ export default function RoomPage() {
           onNextTrack={handleNextTrack}
         />
 
-        {/* Room Social Panels Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* ── Mobile Social Area Segmented Selector (Mobile Only < lg) ── */}
+        <div className="lg:hidden space-y-4">
+          <div className="flex items-center justify-around bg-charcoal/90 border border-border rounded-xl p-1 shadow-md">
+            <button
+              type="button"
+              onClick={() => setActiveMobileTab('chat')}
+              className={[
+                'flex-1 py-2 text-xs font-medium rounded-lg transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer min-h-[42px]',
+                activeMobileTab === 'chat'
+                  ? 'bg-elevated text-gold font-semibold shadow-xs border border-gold/25'
+                  : 'text-muted hover:text-cream',
+              ].join(' ')}
+            >
+              <span>💬 Chat</span>
+              {messages.length > 0 && (
+                <span className="text-[10px] px-1.5 py-0.2 bg-gold/15 text-gold rounded-full font-mono">
+                  {messages.length}
+                </span>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveMobileTab('queue')}
+              className={[
+                'flex-1 py-2 text-xs font-medium rounded-lg transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer min-h-[42px]',
+                activeMobileTab === 'queue'
+                  ? 'bg-elevated text-gold font-semibold shadow-xs border border-gold/25'
+                  : 'text-muted hover:text-cream',
+              ].join(' ')}
+            >
+              <span>🎵 Queue</span>
+              {queue.length > 0 && (
+                <span className="text-[10px] px-1.5 py-0.2 bg-gold/15 text-gold rounded-full font-mono">
+                  {queue.length}
+                </span>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveMobileTab('listeners')}
+              className={[
+                'flex-1 py-2 text-xs font-medium rounded-lg transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer min-h-[42px]',
+                activeMobileTab === 'listeners'
+                  ? 'bg-elevated text-gold font-semibold shadow-xs border border-gold/25'
+                  : 'text-muted hover:text-cream',
+              ].join(' ')}
+            >
+              <span>👥 Listeners</span>
+              <span className="text-[10px] px-1.5 py-0.2 bg-gold/15 text-gold rounded-full font-mono">
+                {members.length}
+              </span>
+            </button>
+          </div>
+
+          <div>
+            {activeMobileTab === 'chat' && (
+              <RoomChat
+                messages={messages}
+                currentUserId={user?._id}
+              />
+            )}
+            {activeMobileTab === 'queue' && (
+              <RoomQueue
+                queue={queue}
+                isHost={isHost}
+                currentUserId={user?._id}
+              />
+            )}
+            {activeMobileTab === 'listeners' && (
+              <MemberList
+                members={members}
+                hostId={currentRoom.host?._id || currentRoom.host}
+              />
+            )}
+          </div>
+        </div>
+
+        {/* ── Desktop Room Social Panels Grid (lg: and up) ── */}
+        <div className="hidden lg:grid lg:grid-cols-12 gap-6">
           {/* Left Column: Presence + Upcoming Queue */}
           <div className="lg:col-span-7 space-y-6">
             <MemberList

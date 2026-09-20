@@ -246,7 +246,7 @@ export default function SettingsPage() {
     <PageContainer>
       <div className="pt-6 pb-20 max-w-4xl mx-auto space-y-8">
         {/* Header Breadcrumb & Title */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 border-b border-border pb-4 sm:pb-6">
           <div>
             <div className="flex items-center gap-2 text-xs text-muted mb-1">
               <Link to={ROUTES.PROFILE} className="hover:text-cream transition-colors">
@@ -304,7 +304,7 @@ export default function SettingsPage() {
         {/* ═════════════════════════════════════════════════════════════════════ */}
         {activeTab === 'privacy' && (
           <div className="space-y-6">
-            <div className="bg-charcoal border border-border rounded-xl p-6 sm:p-8 shadow-md">
+            <div className="bg-charcoal border border-border rounded-xl p-4 sm:p-8 shadow-md">
               <h2 className="font-display text-lg text-cream font-semibold mb-1">
                 Social Privacy Controls
               </h2>
@@ -333,7 +333,7 @@ export default function SettingsPage() {
                     id="discoverable"
                     value={privacy.discoverable}
                     onChange={(e) => setPrivacy((p) => ({ ...p, discoverable: e.target.value }))}
-                    className="w-full bg-obsidian border border-border rounded-lg px-3.5 py-2.5 text-sm text-cream focus:border-gold focus:outline-hidden"
+                    className="w-full bg-obsidian border border-border rounded-lg px-3.5 py-2.5 text-base text-cream focus:border-gold focus:outline-hidden"
                   >
                     <option value="everyone">Everyone (Publicly searchable via username/UID)</option>
                     <option value="friends">Friends Only</option>
@@ -350,7 +350,7 @@ export default function SettingsPage() {
                     id="friendRequests"
                     value={privacy.friendRequests}
                     onChange={(e) => setPrivacy((p) => ({ ...p, friendRequests: e.target.value }))}
-                    className="w-full bg-obsidian border border-border rounded-lg px-3.5 py-2.5 text-sm text-cream focus:border-gold focus:outline-hidden"
+                    className="w-full bg-obsidian border border-border rounded-lg px-3.5 py-2.5 text-base text-cream focus:border-gold focus:outline-hidden"
                   >
                     <option value="everyone">Everyone</option>
                     <option value="none">No one (Direct requests disabled)</option>
@@ -366,7 +366,7 @@ export default function SettingsPage() {
                     id="roomInvites"
                     value={privacy.roomInvites}
                     onChange={(e) => setPrivacy((p) => ({ ...p, roomInvites: e.target.value }))}
-                    className="w-full bg-obsidian border border-border rounded-lg px-3.5 py-2.5 text-sm text-cream focus:border-gold focus:outline-hidden"
+                    className="w-full bg-obsidian border border-border rounded-lg px-3.5 py-2.5 text-base text-cream focus:border-gold focus:outline-hidden"
                   >
                     <option value="everyone">Everyone</option>
                     <option value="friends">Friends Only</option>
@@ -401,7 +401,7 @@ export default function SettingsPage() {
         {activeTab === 'security' && (
           <div className="space-y-8">
             {/* 1. Change Email Section with OTP */}
-            <div className="bg-charcoal border border-border rounded-xl p-6 sm:p-8 shadow-md">
+            <div className="bg-charcoal border border-border rounded-xl p-4 sm:p-8 shadow-md">
               <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                 <h2 className="font-display text-lg text-cream font-semibold">
                   Email Address
@@ -503,7 +503,7 @@ export default function SettingsPage() {
             </div>
 
             {/* 2. Change Password */}
-            <div className="bg-charcoal border border-border rounded-xl p-6 sm:p-8 shadow-md">
+            <div className="bg-charcoal border border-border rounded-xl p-4 sm:p-8 shadow-md">
               <h2 className="font-display text-lg text-cream font-semibold mb-1">
                 Change Password
               </h2>
@@ -560,7 +560,7 @@ export default function SettingsPage() {
             </div>
 
             {/* 3. Active Sessions */}
-            <div className="bg-charcoal border border-border rounded-xl p-6 sm:p-8 shadow-md">
+            <div className="bg-charcoal border border-border rounded-xl p-4 sm:p-8 shadow-md">
               <h2 className="font-display text-lg text-cream font-semibold mb-1">
                 Active Sessions
               </h2>
@@ -592,7 +592,7 @@ export default function SettingsPage() {
             </div>
 
             {/* 4. Delete Account (Danger Zone) */}
-            <div className="bg-red-950/20 border border-red-900/50 rounded-xl p-6 sm:p-8 shadow-md">
+            <div className="bg-red-950/20 border border-red-900/50 rounded-xl p-4 sm:p-8 shadow-md">
               <div className="flex items-center gap-2 text-red-400 mb-2">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -629,7 +629,7 @@ export default function SettingsPage() {
         {/* ═════════════════════════════════════════════════════════════════════ */}
         {deleteModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-obsidian/80 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-charcoal border border-red-900/60 rounded-xl max-w-md w-full p-6 shadow-2xl space-y-5">
+            <div className="bg-charcoal border border-red-900/60 rounded-xl max-w-md w-full p-4 sm:p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
               <div className="flex items-start justify-between">
                 <div>
                   <h3 className="font-display text-lg text-red-400 font-semibold">
