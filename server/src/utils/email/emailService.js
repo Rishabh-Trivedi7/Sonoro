@@ -1,33 +1,25 @@
-import nodemailer from 'nodemailer'
+import { Resend } from 'resend'
+import { ApiError } from '../ApiError.js'
 
 /**
- * Transporter singleton configuration.
- * Configured via environment variables:
- * SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_SECURE, EMAIL_FROM
+ * Resend SDK singleton.
+ * Initialised lazily so the module can be imported without RESEND_API_KEY
+ * being set (the dev console-fallback path doesn't need it).
  */
-let transporter = null
+let resendClient = null
 
-function getTransporter() {
-  if (transporter) return transporter
-
-  const host = process.env.SMTP_HOST
-  const user = process.env.SMTP_USER
-  const pass = process.env.SMTP_PASS
-
-  if (host && user && pass) {
-    transporter = nodemailer.createTransport({
-      host,
-      port: parseInt(process.env.SMTP_PORT || '587', 10),
-      secure: process.env.SMTP_SECURE === 'true',
-      auth: { user, pass },
-    })
+function getResend() {
+  if (resendClient) return resendClient
+  const apiKey = process.env.RESEND_API_KEY
+  if (apiKey) {
+    resendClient = new Resend(apiKey)
   }
-
-  return transporter
+  return resendClient
 }
 
 /**
  * Generate branded HTML email content for Sonora OTP verification.
+ * ── Preserved exactly from the original Nodemailer implementation ──
  */
 function generateEmailHtml({ otp, purpose, username }) {
   let title = 'Verification Code'
@@ -123,17 +115,25 @@ function generateEmailHtml({ otp, purpose, username }) {
 }
 
 /**
- * Send an OTP verification email.
+ * Send an OTP verification email via the Resend HTTP API.
  *
- * @param {Object} options
- * @param {string} options.to - Recipient email address
- * @param {string} options.otp - Plain 6-digit OTP
- * @param {string} options.purpose - 'registration' | 'email_change' | 'account_deletion'
- * @param {string} [options.username] - Optional username for personalization
+ * Behaviour:
+ *  - Production / staging: RESEND_API_KEY is set → email is sent via Resend.
+ *  - Development / CI:     RESEND_API_KEY is absent → OTP is printed to console.
+ *
+ * On Resend error the function throws an ApiError(502) so the controller's
+ * asyncHandler can return a proper HTTP response and the frontend loading
+ * state is never permanently stuck.
+ *
+ * @param {Object}  options
+ * @param {string}  options.to       - Recipient email address
+ * @param {string}  options.otp      - Plain 6-digit OTP
+ * @param {string}  options.purpose  - 'registration' | 'email_change' | 'account_deletion'
+ * @param {string}  [options.username] - Optional username for personalisation
  * @returns {Promise<boolean>}
  */
 export async function sendOTPEmail({ to, otp, purpose, username = '' }) {
-  const mailTransporter = getTransporter()
+  const client = getResend()
   const from = process.env.EMAIL_FROM || '"Sonora" <no-reply@sonora.audio>'
 
   const subjectMap = {
@@ -145,25 +145,30 @@ export async function sendOTPEmail({ to, otp, purpose, username = '' }) {
   const subject = subjectMap[purpose] || 'Sonora verification code'
   const html = generateEmailHtml({ otp, purpose, username })
 
-  if (mailTransporter) {
-    try {
-      await mailTransporter.sendMail({
-        from,
-        to,
-        subject,
-        html,
-        text: `Your Sonora verification code is: ${otp}. It will expire in 10 minutes.`,
-      })
-      return true
-    } catch (err) {
-      console.error('⚠️ [Sonora Email Service] Error sending email via SMTP:', err.message)
-      // In development fallback, also print to console so operations don't get stuck
-      console.info(`[Sonora Email Fallback] OTP for ${to} (${purpose}): ${otp}`)
-      return false
+  // ── Production path: send via Resend HTTP API ────────────────────────────────
+  if (client) {
+    const { data, error } = await client.emails.send({
+      from,
+      to,
+      subject,
+      html,
+      text: `Your Sonora verification code is: ${otp}. It will expire in 10 minutes.`,
+    })
+
+    if (error) {
+      // Log detailed Resend error server-side only — never expose to client
+      console.error('⚠️ [Sonora Email Service] Resend API error:', error)
+      throw new ApiError(
+        502,
+        'We were unable to send the verification email. Please try again in a moment.'
+      )
     }
+
+    console.info(`✅ [Sonora Email Service] OTP email sent via Resend (id: ${data?.id}) → ${to}`)
+    return true
   }
 
-  // Development mode fallback when SMTP is not configured
+  // ── Development fallback: no API key configured ──────────────────────────────
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
   console.log(`📨 [Sonora Email Service - DEV MODE]`)
   console.log(`   To:       ${to}`)
