@@ -25,11 +25,8 @@ export default function SettingsPage() {
 
   // Change Email State
   const [newEmail, setNewEmail] = useState('')
-  const [emailOtp, setEmailOtp] = useState('')
-  const [emailStep, setEmailStep] = useState('input') // 'input' | 'otp'
   const [emailLoading, setEmailLoading] = useState(false)
   const [emailFeedback, setEmailFeedback] = useState({ error: '', success: '' })
-  const [emailCooldown, setEmailCooldown] = useState(0)
 
   // Change Password State
   const [currentPassword, setCurrentPassword] = useState('')
@@ -40,11 +37,8 @@ export default function SettingsPage() {
 
   // Delete Account State
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
-  const [deleteStep, setDeleteStep] = useState('warn') // 'warn' | 'otp'
-  const [deleteOtp, setDeleteOtp] = useState('')
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [deleteFeedback, setDeleteFeedback] = useState({ error: '' })
-  const [deleteCooldown, setDeleteCooldown] = useState(0)
 
   // Active sessions state
   const [activeSessions, setActiveSessions] = useState([])
@@ -63,22 +57,7 @@ export default function SettingsPage() {
     fetchSettings()
   }, [])
 
-  // Cooldown timers
-  useEffect(() => {
-    let timer
-    if (emailCooldown > 0) {
-      timer = setInterval(() => setEmailCooldown((prev) => (prev > 0 ? prev - 1 : 0)), 1000)
-    }
-    return () => clearInterval(timer)
-  }, [emailCooldown])
 
-  useEffect(() => {
-    let timer
-    if (deleteCooldown > 0) {
-      timer = setInterval(() => setDeleteCooldown((prev) => (prev > 0 ? prev - 1 : 0)), 1000)
-    }
-    return () => clearInterval(timer)
-  }, [deleteCooldown])
 
   // ── Privacy Handlers ──────────────────────────────────────────────────────────
   const handleSavePrivacy = async (e) => {
@@ -100,8 +79,8 @@ export default function SettingsPage() {
     }
   }
 
-  // ── Change Email Handlers ─────────────────────────────────────────────────────
-  const handleRequestEmailOtp = async (e) => {
+  // ── Change Email Handler ──────────────────────────────────────────────────────
+  const handleChangeEmail = async (e) => {
     e.preventDefault()
     setEmailFeedback({ error: '', success: '' })
 
@@ -110,51 +89,24 @@ export default function SettingsPage() {
       return
     }
 
-    setEmailLoading(true)
-    try {
-      await userService.changeEmailRequest(newEmail.trim())
-      setEmailStep('otp')
-      setEmailCooldown(60)
-      setEmailFeedback({
-        error: '',
-        success: `Verification code sent to ${newEmail.trim()}. Enter it below to confirm.`,
-      })
-    } catch (err) {
-      setEmailFeedback({
-        error: err.response?.data?.message || 'Failed to request email change code.',
-        success: '',
-      })
-    } finally {
-      setEmailLoading(false)
-    }
-  }
-
-  const handleVerifyEmailChange = async (e) => {
-    e.preventDefault()
-    setEmailFeedback({ error: '', success: '' })
-
-    if (!emailOtp.trim() || emailOtp.trim().length !== 6) {
-      setEmailFeedback({ error: 'Please enter the 6-digit verification code.', success: '' })
+    if (newEmail.trim().toLowerCase() === user?.email?.toLowerCase()) {
+      setEmailFeedback({ error: 'New email must be different from your current email.', success: '' })
       return
     }
 
     setEmailLoading(true)
     try {
-      const updatedUser = await userService.changeEmailVerify({
-        newEmail: newEmail.trim(),
-        otp: emailOtp.trim(),
-      })
+      const updatedUser = await userService.changeEmail(newEmail.trim())
       updateLocalUser(updatedUser)
-      setEmailStep('input')
       setNewEmail('')
-      setEmailOtp('')
       setEmailFeedback({
         error: '',
-        success: 'Your email address has been updated and verified successfully!',
+        success: 'Your email address has been updated successfully!',
       })
+      setTimeout(() => setEmailFeedback((p) => ({ ...p, success: '' })), 4000)
     } catch (err) {
       setEmailFeedback({
-        error: err.response?.data?.message || 'Invalid or expired verification code.',
+        error: err.response?.data?.message || 'Failed to update email address.',
         success: '',
       })
     } finally {
@@ -200,42 +152,19 @@ export default function SettingsPage() {
     }
   }
 
-  // ── Delete Account Handlers ───────────────────────────────────────────────────
-  const handleRequestDeleteOtp = async () => {
+  // ── Delete Account Handler ────────────────────────────────────────────────────
+  const handleConfirmDelete = async () => {
     setDeleteFeedback({ error: '' })
     setDeleteLoading(true)
 
     try {
-      await userService.deleteAccountRequest()
-      setDeleteStep('otp')
-      setDeleteCooldown(60)
-    } catch (err) {
-      setDeleteFeedback({
-        error: err.response?.data?.message || 'Failed to send deletion confirmation code.',
-      })
-    } finally {
-      setDeleteLoading(false)
-    }
-  }
-
-  const handleConfirmDelete = async (e) => {
-    e.preventDefault()
-    setDeleteFeedback({ error: '' })
-
-    if (!deleteOtp.trim() || deleteOtp.trim().length !== 6) {
-      setDeleteFeedback({ error: 'Please enter the 6-digit confirmation code.' })
-      return
-    }
-
-    setDeleteLoading(true)
-    try {
-      await userService.deleteAccountVerify(deleteOtp.trim())
+      await userService.deleteAccount()
       setDeleteModalOpen(false)
       await logout()
       navigate(ROUTES.LOGIN, { replace: true })
     } catch (err) {
       setDeleteFeedback({
-        error: err.response?.data?.message || 'Invalid or expired confirmation code.',
+        error: err.response?.data?.message || 'Failed to delete account.',
       })
     } finally {
       setDeleteLoading(false)
@@ -400,22 +329,18 @@ export default function SettingsPage() {
         {/* ═════════════════════════════════════════════════════════════════════ */}
         {activeTab === 'security' && (
           <div className="space-y-8">
-            {/* 1. Change Email Section with OTP */}
+            {/* 1. Change Email Section */}
             <div className="bg-charcoal border border-border rounded-xl p-4 sm:p-8 shadow-md">
               <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                 <h2 className="font-display text-lg text-cream font-semibold">
                   Email Address
                 </h2>
-                <span className="text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-emerald-950/60 border border-emerald-800/70 text-emerald-400">
-                  ✓ Verified
-                </span>
               </div>
               <p className="text-xs text-muted mb-5">
                 Current email:{' '}
                 <span className="font-mono text-cream font-medium">
                   {user?.email}
                 </span>
-                . Changing your email requires OTP verification sent to the new email address.
               </p>
 
               {emailFeedback.error && (
@@ -429,77 +354,20 @@ export default function SettingsPage() {
                 </div>
               )}
 
-              {emailStep === 'input' ? (
-                <form onSubmit={handleRequestEmailOtp} className="space-y-4 max-w-md">
-                  <Input
-                    id="newEmail"
-                    label="New Email Address"
-                    type="email"
-                    placeholder="new-address@example.com"
-                    value={newEmail}
-                    onChange={(e) => setNewEmail(e.target.value)}
-                    required
-                  />
-                  <Button type="submit" variant="primary" size="sm" disabled={emailLoading}>
-                    {emailLoading ? 'Sending code...' : 'Send Verification Code'}
-                  </Button>
-                </form>
-              ) : (
-                <form onSubmit={handleVerifyEmailChange} className="space-y-4 max-w-md">
-                  <div className="space-y-1.5">
-                    <label htmlFor="emailOtpInput" className="block text-xs font-medium uppercase tracking-wider text-muted">
-                      Enter 6-Digit Code sent to {newEmail}
-                    </label>
-                    <input
-                      id="emailOtpInput"
-                      type="text"
-                      maxLength={6}
-                      value={emailOtp}
-                      onChange={(e) => setEmailOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                      placeholder="••••••"
-                      className="w-full text-center tracking-[0.3em] font-mono text-xl py-2.5 px-4 rounded-lg bg-obsidian border border-border focus:border-gold focus:outline-hidden text-cream"
-                      autoFocus
-                      required
-                    />
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Button
-                      type="submit"
-                      variant="primary"
-                      size="sm"
-                      disabled={emailLoading || emailOtp.length !== 6}
-                    >
-                      {emailLoading ? 'Verifying...' : 'Confirm Email Change'}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setEmailStep('input')
-                        setEmailOtp('')
-                        setEmailFeedback({ error: '', success: '' })
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                  {emailCooldown > 0 ? (
-                    <p className="text-[11px] text-muted">
-                      Resend code available in {emailCooldown}s
-                    </p>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={handleRequestEmailOtp}
-                      disabled={emailLoading}
-                      className="text-xs text-gold hover:underline cursor-pointer"
-                    >
-                      Resend verification code
-                    </button>
-                  )}
-                </form>
-              )}
+              <form onSubmit={handleChangeEmail} className="space-y-4 max-w-md">
+                <Input
+                  id="newEmail"
+                  label="New Email Address"
+                  type="email"
+                  placeholder="new-address@example.com"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  required
+                />
+                <Button type="submit" variant="primary" size="sm" disabled={emailLoading}>
+                  {emailLoading ? 'Updating email...' : 'Update Email Address'}
+                </Button>
+              </form>
             </div>
 
             {/* 2. Change Password */}
@@ -604,7 +472,7 @@ export default function SettingsPage() {
               <p className="text-xs text-red-200/80 mb-5 leading-relaxed max-w-xl">
                 Permanently deletes your Sonora profile, public Sonora UID (
                 <span className="font-mono text-cream">{user?.uid}</span>), curated room
-                history, and friendship relationships. This action is irreversible and requires email OTP confirmation.
+                history, and friendship relationships. This action is irreversible.
               </p>
 
               <Button
@@ -612,8 +480,6 @@ export default function SettingsPage() {
                 size="sm"
                 onClick={() => {
                   setDeleteModalOpen(true)
-                  setDeleteStep('warn')
-                  setDeleteOtp('')
                   setDeleteFeedback({ error: '' })
                 }}
                 className="border-red-800/80 text-red-400 hover:bg-red-950/40 hover:text-red-300"
@@ -636,7 +502,7 @@ export default function SettingsPage() {
                     Confirm Account Deletion
                   </h3>
                   <p className="text-xs text-muted mt-1">
-                    Step {deleteStep === 'warn' ? '1: Acknowledgment' : '2: Email Verification'}
+                    Permanent Account Removal
                   </p>
                 </div>
                 <button
@@ -654,98 +520,37 @@ export default function SettingsPage() {
                 </div>
               )}
 
-              {deleteStep === 'warn' ? (
-                <div className="space-y-4">
-                  <div className="p-3 bg-obsidian/80 border border-border rounded-lg text-xs text-cream/90 space-y-2">
-                    <p className="font-semibold text-red-300">
-                      Are you absolutely sure?
-                    </p>
-                    <p className="text-muted text-[11px] leading-relaxed">
-                      To prevent accidental loss, Sonora will send a single-use 6-digit confirmation code to{' '}
-                      <span className="text-cream font-mono font-medium">{user?.email}</span>.
-                      Your account will only be deleted once this code is successfully verified.
-                    </p>
-                  </div>
-
-                  <div className="flex gap-3 justify-end pt-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setDeleteModalOpen(false)}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleRequestDeleteOtp}
-                      disabled={deleteLoading}
-                      className="border-red-700 bg-red-950/40 text-red-300 hover:bg-red-900/60"
-                    >
-                      {deleteLoading ? 'Sending code...' : 'Send Deletion Code'}
-                    </Button>
-                  </div>
+              <div className="space-y-4">
+                <div className="p-3 bg-obsidian/80 border border-border rounded-lg text-xs text-cream/90 space-y-2">
+                  <p className="font-semibold text-red-300">
+                    Are you absolutely sure?
+                  </p>
+                  <p className="text-muted text-[11px] leading-relaxed">
+                    This will permanently delete your account, saved preferences, friends, and listening history. This action cannot be undone.
+                  </p>
                 </div>
-              ) : (
-                <form onSubmit={handleConfirmDelete} className="space-y-4">
-                  <div>
-                    <label htmlFor="deleteOtpInput" className="block text-xs font-medium uppercase tracking-wider text-muted mb-2">
-                      Enter 6-Digit Deletion Code
-                    </label>
-                    <input
-                      id="deleteOtpInput"
-                      type="text"
-                      maxLength={6}
-                      value={deleteOtp}
-                      onChange={(e) => setDeleteOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                      placeholder="••••••"
-                      className="w-full text-center tracking-[0.3em] font-mono text-2xl py-2.5 px-4 rounded-lg bg-obsidian border border-red-900/80 focus:border-red-500 focus:outline-hidden text-cream"
-                      autoFocus
-                      required
-                    />
-                    <p className="text-[11px] text-muted text-center mt-2">
-                      Code dispatched to {user?.email}
-                    </p>
-                  </div>
 
-                  <div className="flex items-center justify-between pt-2">
-                    {deleteCooldown > 0 ? (
-                      <span className="text-[11px] text-muted">
-                        Resend in {deleteCooldown}s
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={handleRequestDeleteOtp}
-                        disabled={deleteLoading}
-                        className="text-xs text-gold hover:underline cursor-pointer"
-                      >
-                        Resend code
-                      </button>
-                    )}
-
-                    <div className="flex gap-2">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setDeleteModalOpen(false)}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        type="submit"
-                        variant="primary"
-                        size="sm"
-                        disabled={deleteLoading || deleteOtp.length !== 6}
-                        className="bg-red-700 hover:bg-red-600 text-cream"
-                      >
-                        {deleteLoading ? 'Deleting...' : 'Permanently Delete'}
-                      </Button>
-                    </div>
-                  </div>
-                </form>
-              )}
+                <div className="flex gap-3 justify-end pt-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setDeleteModalOpen(false)}
+                    disabled={deleteLoading}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    onClick={handleConfirmDelete}
+                    disabled={deleteLoading}
+                    className="bg-red-700 hover:bg-red-600 text-cream"
+                  >
+                    {deleteLoading ? 'Deleting...' : 'Permanently Delete'}
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
         )}

@@ -57,7 +57,7 @@ const userSchema = new Schema(
     },
     isEmailVerified: {
       type: Boolean,
-      default: false,
+      default: true,
     },
     privacy: {
       discoverable: {

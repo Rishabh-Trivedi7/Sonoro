@@ -2,28 +2,11 @@ import apiClient from './apiClient'
 
 const authService = {
   /**
-   * Initiate registration. Backend sends a 6-digit OTP to the user's email.
-   * Returns { email, requiresEmailVerification: true }.
+   * Register user directly. Backend creates verified user and returns { user, accessToken }.
    */
   register: async (userData) => {
     const response = await apiClient.post('/users/register', userData)
-    return response.data.data
-  },
-
-  /**
-   * Verify registration OTP. Backend creates verified user and returns { user, accessToken }.
-   */
-  verifyRegistration: async ({ email, otp }) => {
-    const response = await apiClient.post('/users/verify-registration', { email, otp })
     return response.data.data // { user, accessToken }
-  },
-
-  /**
-   * Resend a fresh registration verification OTP (subject to 60s cooldown).
-   */
-  resendRegistrationOtp: async (email) => {
-    const response = await apiClient.post('/users/resend-registration-otp', { email })
-    return response.data.data
   },
 
   /**

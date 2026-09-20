@@ -36,13 +36,8 @@ export const userService = {
     return response.data.data
   },
 
-  changeEmailRequest: async (newEmail) => {
-    const response = await apiClient.post('/users/me/change-email/request', { newEmail })
-    return response.data.data
-  },
-
-  changeEmailVerify: async ({ newEmail, otp }) => {
-    const response = await apiClient.post('/users/me/change-email/verify', { newEmail, otp })
+  changeEmail: async (newEmail) => {
+    const response = await apiClient.post('/users/me/change-email', { newEmail })
     return response.data.data
   },
 
@@ -54,13 +49,8 @@ export const userService = {
     return response.data.data
   },
 
-  deleteAccountRequest: async () => {
-    const response = await apiClient.post('/users/me/delete/request')
-    return response.data.data
-  },
-
-  deleteAccountVerify: async (otp) => {
-    const response = await apiClient.post('/users/me/delete/verify', { otp })
+  deleteAccount: async () => {
+    const response = await apiClient.post('/users/me/delete')
     return response.data.data
   },
 }

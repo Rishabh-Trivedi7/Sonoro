@@ -345,7 +345,7 @@ export default function ProfilePage() {
                 placeholder="What sounds move you?"
               />
               <div className="text-[11px] text-muted">
-                To update your account email address securely with OTP, visit{' '}
+                To update your account email address, visit{' '}
                 <button
                   type="button"
                   onClick={() => navigate(ROUTES.SETTINGS)}

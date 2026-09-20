@@ -8,17 +8,14 @@ import { User } from '../models/user.model.js'
 import { Room } from '../models/room.model.js'
 import { Friendship } from '../models/friendship.model.js'
 import { ListeningHistory } from '../models/listeningHistory.model.js'
-import { Otp } from '../models/otp.model.js'
 import { uploadToCloudinary, deleteFromCloudinary } from '../utils/cloudinary.js'
-import { generateAndSaveOTP, verifyOTP } from '../utils/otp.service.js'
-import { sendOTPEmail } from '../utils/email/emailService.js'
 
 const getCookieName = () => process.env.REFRESH_TOKEN_COOKIE_NAME || 'sonora_refresh_token'
 
 /**
- * ── Registration Flow with Email OTP ──────────────────────────────────────────
- * Step 1: POST /users/register
- * Validates input, hashes password, saves pending OTP record, and sends 6-digit OTP.
+ * ── Registration Flow ─────────────────────────────────────────────────────────
+ * POST /users/register
+ * Validates input, creates verified User document, and establishes authenticated session.
  */
 const registerUser = asyncHandler(async (req, res) => {
   const { username, email, password } = req.body
@@ -38,7 +35,7 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'Password must be at least 6 characters long')
   }
 
-  // Check if username or email is already taken by a verified/active account
+  // Check if username or email is already taken
   const existedUser = await User.findOne({
     $or: [{ username: normalizedUsername }, { email: normalizedEmail }],
   })
@@ -47,78 +44,12 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new ApiError(409, 'User with email or username already exists')
   }
 
-  // Pre-hash password with bcrypt for secure storage in pending OTP payload
+  // Hash password
   const passwordHash = await bcrypt.hash(password, 10)
 
-  // Generate and store OTP securely (SHA-256 hashed)
-  const { otp } = await generateAndSaveOTP({
-    email: normalizedEmail,
-    purpose: 'registration',
-    payload: {
-      username: normalizedUsername,
-      email: normalizedEmail,
-      passwordHash,
-    },
-  })
-
-  // Dispatch branded transactional email (or dev fallback)
-  await sendOTPEmail({
-    to: normalizedEmail,
-    otp,
-    purpose: 'registration',
-    username: normalizedUsername,
-  })
-
-  return res.status(200).json(
-    new ApiResponse(
-      200,
-      {
-        email: normalizedEmail,
-        requiresEmailVerification: true,
-      },
-      'Verification code sent to your email. Please enter the 6-digit code to complete registration.'
-    )
-  )
-})
-
-/**
- * Step 2: POST /users/verify-registration
- * Verifies submitted OTP, creates verified User document, and establishes authenticated session.
- */
-const verifyRegistration = asyncHandler(async (req, res) => {
-  const { email, otp } = req.body
-
-  if (!email?.trim() || !otp) {
-    throw new ApiError(400, 'Email and verification code are required')
-  }
-
-  const normalizedEmail = email.trim().toLowerCase()
-
-  // Verify OTP against stored hash (checks attempts, expiration, single-use)
-  const verification = await verifyOTP({
-    email: normalizedEmail,
-    otp: otp.toString().trim(),
-    purpose: 'registration',
-  })
-
-  const { username, passwordHash } = verification.payload || {}
-
-  if (!username || !passwordHash) {
-    throw new ApiError(400, 'Registration details missing or expired. Please register again.')
-  }
-
-  // Check again to avoid race conditions
-  const existedUser = await User.findOne({
-    $or: [{ username }, { email: normalizedEmail }],
-  })
-
-  if (existedUser) {
-    throw new ApiError(409, 'User with email or username already exists')
-  }
-
-  // Create active, email-verified user
+  // Create active, verified user
   const user = await User.create({
-    username,
+    username: normalizedUsername,
     email: normalizedEmail,
     password: passwordHash,
     isEmailVerified: true,
@@ -148,60 +79,9 @@ const verifyRegistration = asyncHandler(async (req, res) => {
           user: registeredUser,
           accessToken,
         },
-        'Account verified and created successfully'
+        'Account created successfully'
       )
     )
-})
-
-/**
- * POST /users/resend-registration-otp
- * Resends a fresh OTP subject to 60-second cooldown limit.
- */
-const resendRegistrationOtp = asyncHandler(async (req, res) => {
-  const { email } = req.body
-
-  if (!email?.trim()) {
-    throw new ApiError(400, 'Email is required')
-  }
-
-  const normalizedEmail = email.trim().toLowerCase()
-
-  // Check if already registered and verified
-  const existedUser = await User.findOne({ email: normalizedEmail })
-  if (existedUser && existedUser.isEmailVerified !== false) {
-    throw new ApiError(400, 'This email is already verified. Please sign in.')
-  }
-
-  // Find most recent pending registration OTP record
-  const pendingOtp = await Otp.findOne({
-    email: normalizedEmail,
-    purpose: 'registration',
-  }).sort({ createdAt: -1 })
-
-  if (!pendingOtp || !pendingOtp.payload?.username) {
-    throw new ApiError(400, 'No pending registration found for this email. Please register again.')
-  }
-
-  const { otp } = await generateAndSaveOTP({
-    email: normalizedEmail,
-    purpose: 'registration',
-    payload: pendingOtp.payload,
-  })
-
-  await sendOTPEmail({
-    to: normalizedEmail,
-    otp,
-    purpose: 'registration',
-    username: pendingOtp.payload.username,
-  })
-
-  return res.status(200).json(
-    new ApiResponse(
-      200,
-      { email: normalizedEmail },
-      'A new verification code has been sent to your email'
-    )
-  )
 })
 
 /**
@@ -233,19 +113,7 @@ const loginUser = asyncHandler(async (req, res) => {
     throw new ApiError(401, 'Invalid user credentials')
   }
 
-  // Block login if unverified and return controlled path for email verification
-  if (user.isEmailVerified === false) {
-    return res.status(403).json(
-      new ApiResponse(
-        403,
-        {
-          email: user.email,
-          requiresEmailVerification: true,
-        },
-        'Please verify your email before logging in. A verification code can be requested.'
-      )
-    )
-  }
+  // Password verified — establish session
 
   const accessToken = user.generateAccessToken()
   const refreshToken = user.generateRefreshToken()
@@ -554,10 +422,11 @@ const updateUserSettings = asyncHandler(async (req, res) => {
 })
 
 /**
- * ── Email Change with OTP ─────────────────────────────────────────────────────
- * Step 1: POST /users/me/change-email/request
+ * ── Change Email ─────────────────────────────────────────────────────────────
+ * POST /users/me/change-email
+ * Validates new email and updates user email directly without OTP.
  */
-const changeEmailRequest = asyncHandler(async (req, res) => {
+const changeEmail = asyncHandler(async (req, res) => {
   const { newEmail } = req.body
 
   if (!newEmail?.trim()) {
@@ -575,66 +444,8 @@ const changeEmailRequest = asyncHandler(async (req, res) => {
     throw new ApiError(409, 'An account with this email address already exists')
   }
 
-  // Generate OTP sent to the NEW email address
-  const { otp } = await generateAndSaveOTP({
-    email: normalizedNewEmail,
-    purpose: 'email_change',
-    payload: {
-      userId: req.user._id,
-      newEmail: normalizedNewEmail,
-    },
-  })
-
-  await sendOTPEmail({
-    to: normalizedNewEmail,
-    otp,
-    purpose: 'email_change',
-    username: req.user.username,
-  })
-
-  return res.status(200).json(
-    new ApiResponse(
-      200,
-      { newEmail: normalizedNewEmail },
-      'Verification code sent to your new email address'
-    )
-  )
-})
-
-/**
- * Step 2: POST /users/me/change-email/verify
- */
-const changeEmailVerify = asyncHandler(async (req, res) => {
-  const { newEmail, otp } = req.body
-
-  if (!newEmail?.trim() || !otp) {
-    throw new ApiError(400, 'New email and verification code are required')
-  }
-
-  const normalizedNewEmail = newEmail.trim().toLowerCase()
-
-  const verification = await verifyOTP({
-    email: normalizedNewEmail,
-    otp: otp.toString().trim(),
-    purpose: 'email_change',
-  })
-
-  if (verification.payload?.userId?.toString() !== req.user._id.toString()) {
-    throw new ApiError(403, 'Unauthorized email change verification request')
-  }
-
   const user = await User.findById(req.user._id)
   if (!user) throw new ApiError(404, 'User not found')
-
-  // Check once more for collisions
-  const collision = await User.findOne({
-    email: normalizedNewEmail,
-    _id: { $ne: req.user._id },
-  })
-
-  if (collision) {
-    throw new ApiError(409, 'An account with this email address already exists')
-  }
 
   user.email = normalizedNewEmail
   user.isEmailVerified = true
@@ -646,6 +457,8 @@ const changeEmailVerify = asyncHandler(async (req, res) => {
     new ApiResponse(200, updatedUser, 'Email address changed successfully')
   )
 })
+
+const changeEmailRequest = changeEmail
 
 /**
  * ── Change Password ───────────────────────────────────────────────────────────
@@ -677,62 +490,13 @@ const changePassword = asyncHandler(async (req, res) => {
 })
 
 /**
- * ── Account Deletion with OTP ─────────────────────────────────────────────────
- * Step 1: POST /users/me/delete/request
+ * ── Account Deletion ──────────────────────────────────────────────────────────
+ * POST /users/me/delete
+ * Deletes user account directly for authenticated session without OTP.
  */
-const deleteAccountRequest = asyncHandler(async (req, res) => {
+const deleteAccount = asyncHandler(async (req, res) => {
   const user = await User.findById(req.user._id)
   if (!user) throw new ApiError(404, 'User not found')
-
-  const { otp } = await generateAndSaveOTP({
-    email: user.email,
-    purpose: 'account_deletion',
-    payload: {
-      userId: user._id,
-    },
-  })
-
-  await sendOTPEmail({
-    to: user.email,
-    otp,
-    purpose: 'account_deletion',
-    username: user.username,
-  })
-
-  return res.status(200).json(
-    new ApiResponse(
-      200,
-      { email: user.email },
-      'Verification code sent to your email to confirm account deletion'
-    )
-  )
-})
-
-/**
- * Step 2: POST /users/me/delete/verify
- */
-const deleteAccountVerify = asyncHandler(async (req, res) => {
-  const { otp } = req.body
-
-  if (!otp) {
-    throw new ApiError(400, 'Verification code is required to confirm account deletion')
-  }
-
-  const user = await User.findById(req.user._id)
-  if (!user) throw new ApiError(404, 'User not found')
-
-  const verification = await verifyOTP({
-    email: user.email,
-    otp: otp.toString().trim(),
-    purpose: 'account_deletion',
-  })
-
-  if (verification.payload?.userId?.toString() !== req.user._id.toString()) {
-    throw new ApiError(403, 'Unauthorized deletion request')
-  }
-
-  // Invalidate any active OTPs
-  await Otp.deleteMany({ email: user.email })
 
   // Delete user document
   await User.findByIdAndDelete(user._id)
@@ -745,10 +509,10 @@ const deleteAccountVerify = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, {}, 'Account permanently deleted'))
 })
 
+const deleteAccountRequest = deleteAccount
+
 export {
   registerUser,
-  verifyRegistration,
-  resendRegistrationOtp,
   loginUser,
   refreshAccessToken,
   logoutUser,
@@ -759,9 +523,9 @@ export {
   getUserStats,
   getUserSettings,
   updateUserSettings,
+  changeEmail,
   changeEmailRequest,
-  changeEmailVerify,
   changePassword,
+  deleteAccount,
   deleteAccountRequest,
-  deleteAccountVerify,
 }

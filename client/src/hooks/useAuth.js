@@ -27,15 +27,6 @@ export function useAuth() {
   const register = useCallback(
     async (userData) => {
       const data = await authService.register(userData)
-      // data = { email, requiresEmailVerification: true }
-      return data
-    },
-    []
-  )
-
-  const verifyRegistration = useCallback(
-    async ({ email, otp }) => {
-      const data = await authService.verifyRegistration({ email, otp })
       // data = { user, accessToken }
       if (data?.accessToken && data?.user) {
         dispatch(setCredentials({ user: data.user, accessToken: data.accessToken }))
@@ -72,7 +63,6 @@ export function useAuth() {
     initialized,
     login,
     register,
-    verifyRegistration,
     logout,
     updateLocalUser,
   }

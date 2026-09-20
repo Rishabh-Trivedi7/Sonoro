@@ -1,8 +1,6 @@
 import { Router } from 'express'
 import {
   registerUser,
-  verifyRegistration,
-  resendRegistrationOtp,
   loginUser,
   refreshAccessToken,
   logoutUser,
@@ -13,11 +11,11 @@ import {
   getUserStats,
   getUserSettings,
   updateUserSettings,
+  changeEmail,
   changeEmailRequest,
-  changeEmailVerify,
   changePassword,
+  deleteAccount,
   deleteAccountRequest,
-  deleteAccountVerify,
 } from '../controllers/user.controller.js'
 import { verifyJWT } from '../middlewares/auth.middleware.js'
 import { upload } from '../utils/multer.js'
@@ -28,8 +26,6 @@ const router = Router()
 // IMPORTANT: Specific static paths must be registered BEFORE the /:username
 // wildcard route, otherwise Express would match them as usernames.
 router.route('/register').post(registerUser)
-router.route('/verify-registration').post(verifyRegistration)
-router.route('/resend-registration-otp').post(resendRegistrationOtp)
 router.route('/login').post(loginUser)
 router.route('/refresh-token').post(refreshAccessToken)
 
@@ -41,12 +37,12 @@ router.route('/me/profile').patch(verifyJWT, upload.single('avatar'), updateProf
 router.route('/me/stats').get(verifyJWT, getUserStats)
 router.route('/me/settings').get(verifyJWT, getUserSettings).patch(verifyJWT, updateUserSettings)
 
-// Account & Security OTP routes
+// Account & Security routes
+router.route('/me/change-email').post(verifyJWT, changeEmail)
 router.route('/me/change-email/request').post(verifyJWT, changeEmailRequest)
-router.route('/me/change-email/verify').post(verifyJWT, changeEmailVerify)
 router.route('/me/change-password').post(verifyJWT, changePassword)
+router.route('/me/delete').post(verifyJWT, deleteAccount)
 router.route('/me/delete/request').post(verifyJWT, deleteAccountRequest)
-router.route('/me/delete/verify').post(verifyJWT, deleteAccountVerify)
 
 router.route('/search').get(verifyJWT, searchUsers)
 
